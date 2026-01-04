@@ -1,0 +1,29 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./server/.env
+    depends_on:
+      - db
+
+  client:
+    build: ./client
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+
+  db:
+    image: mariadb:10.4
+    environment:
+      MYSQL_ROOT_PASSWORD: fiore
+      MYSQL_DATABASE: instalacionesdep
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
