@@ -52,10 +52,17 @@ class TorneoController extends Controller
                 // Calcular inscritos reales desde la relación, no del campo que puede estar desincronizado
                 $inscritosReales = $torneo->users()->count();
                 
-                // Si la fecha de inicio ya pasó o es hoy, cerrar inscripciones
+                // Calcular estado basado en fechas
                 $fechaInicio = $torneo->fecha_inicio->startOfDay();
+                $fechaFin = $torneo->fecha_fin->startOfDay();
                 $estadoFinal = $torneo->estado;
-                if ($fechaInicio <= $hoy && $estadoFinal === 'abierto') {
+                
+                // Si la fecha de fin ya pasó, el torneo está finalizado
+                if ($fechaFin < $hoy) {
+                    $estadoFinal = 'finalizado';
+                }
+                // Si la fecha de inicio ya pasó pero la fecha fin no, cerrar inscripciones
+                elseif ($fechaInicio <= $hoy && $estadoFinal === 'abierto') {
                     $estadoFinal = 'cerrado';
                 }
                 
@@ -103,10 +110,17 @@ class TorneoController extends Controller
         $inscritosReales = $torneoModel->users()->count();
         $torneoModel->inscritos = $inscritosReales;
         
-        // Si la fecha de inicio ya pasó o es hoy, cerrar inscripciones
+        // Calcular estado basado en fechas
         $hoy = now()->startOfDay();
         $fechaInicio = $torneoModel->fecha_inicio->startOfDay();
-        if ($fechaInicio <= $hoy && $torneoModel->estado === 'abierto') {
+        $fechaFin = $torneoModel->fecha_fin->startOfDay();
+        
+        // Si la fecha de fin ya pasó, el torneo está finalizado
+        if ($fechaFin < $hoy) {
+            $torneoModel->estado = 'finalizado';
+        }
+        // Si la fecha de inicio ya pasó pero la fecha fin no, cerrar inscripciones
+        elseif ($fechaInicio <= $hoy && $torneoModel->estado === 'abierto') {
             $torneoModel->estado = 'cerrado';
         }
 
@@ -272,6 +286,206 @@ class TorneoController extends Controller
                 'data' => [],
             ], 500);
         }
+    }
+
+    public function ranking(Request $request, Torneo $torneo)
+    {
+        if (!$torneo->activo) {
+            return response()->json([
+                'message' => 'Torneo no encontrado',
+            ], 404);
+        }
+
+        // Datos mock de ranking
+        $mockRanking = $this->generateMockRanking($torneo);
+
+        return response()->json([
+            'data' => [
+                'torneo_id' => $torneo->id,
+                'torneo_nombre' => $torneo->nombre,
+                'ranking' => $mockRanking,
+            ],
+        ]);
+    }
+
+    public function bracket(Request $request, Torneo $torneo)
+    {
+        if (!$torneo->activo) {
+            return response()->json([
+                'message' => 'Torneo no encontrado',
+            ], 404);
+        }
+
+        // Datos mock de bracket
+        $mockBracket = $this->generateMockBracket($torneo);
+
+        return response()->json([
+            'data' => [
+                'torneo_id' => $torneo->id,
+                'torneo_nombre' => $torneo->nombre,
+                'bracket' => $mockBracket,
+            ],
+        ]);
+    }
+
+    private function generateMockRanking(Torneo $torneo): array
+    {
+        // Nombres mock de jugadores (reducido a 8 para que quepa mejor en el modal)
+        $nombres = [
+            'Carlos Martínez', 'Ana García', 'Luis Fernández', 'María López',
+            'Juan Pérez', 'Laura Sánchez', 'Pedro Gómez', 'Sofía Rodríguez',
+        ];
+
+        $ranking = [];
+        $puntos = 100;
+        $partidosJugados = 5;
+        $partidosGanados = 4;
+
+        for ($i = 0; $i < min(8, count($nombres)); $i++) {
+            $ranking[] = [
+                'posicion' => $i + 1,
+                'jugador_id' => $i + 100, // IDs mock
+                'jugador_nombre' => $nombres[$i],
+                'puntos' => $puntos,
+                'partidos_jugados' => $partidosJugados,
+                'partidos_ganados' => $partidosGanados,
+                'partidos_perdidos' => $partidosJugados - $partidosGanados,
+                'win_rate' => round(($partidosGanados / $partidosJugados) * 100, 1),
+            ];
+
+            // Variar los datos para hacerlo más realista
+            $puntos -= rand(2, 8);
+            $partidosJugados = rand(4, 6);
+            $partidosGanados = rand(max(2, $partidosJugados - 2), $partidosJugados);
+        }
+
+        return $ranking;
+    }
+
+    private function generateMockBracket(Torneo $torneo): array
+    {
+        // Nombres mock para el bracket
+        $jugadores = [
+            'Carlos Martínez', 'Ana García', 'Luis Fernández', 'María López',
+            'Juan Pérez', 'Laura Sánchez', 'Pedro Gómez', 'Sofía Rodríguez',
+        ];
+
+        // Generar bracket tipo eliminatoria simple (8 jugadores)
+        $rounds = [];
+
+        // Cuartos de final (Quarterfinals)
+        $quarterfinals = [];
+        for ($i = 0; $i < 4; $i++) {
+            $jugador1 = $jugadores[$i * 2];
+            $jugador2 = $jugadores[$i * 2 + 1];
+            $resultado1 = rand(0, 3);
+            $resultado2 = rand(0, 3);
+            // Asegurar que alguien gane
+            if ($resultado1 === $resultado2) {
+                if ($resultado1 < 3) {
+                    $resultado2 = $resultado1 + 1;
+                } else {
+                    $resultado1 = $resultado2 - 1;
+                }
+            }
+            $ganador = $resultado1 > $resultado2 ? $jugador1 : $jugador2;
+
+            $quarterfinals[] = [
+                'id' => $i + 1,
+                'jugador1' => $jugador1,
+                'jugador1_id' => ($i * 2) + 100,
+                'resultado1' => max($resultado1, $resultado2),
+                'jugador2' => $jugador2,
+                'jugador2_id' => ($i * 2 + 1) + 100,
+                'resultado2' => min($resultado1, $resultado2),
+                'ganador' => $ganador,
+                'ganador_id' => $resultado1 > $resultado2 ? ($i * 2) + 100 : ($i * 2 + 1) + 100,
+                'estado' => 'finalizado',
+            ];
+        }
+
+        // Semifinales (Semifinals)
+        $semifinals = [];
+        for ($i = 0; $i < 2; $i++) {
+            $qf1 = $quarterfinals[$i * 2];
+            $qf2 = $quarterfinals[$i * 2 + 1];
+            $ganador1 = $qf1['ganador'];
+            $ganador2 = $qf2['ganador'];
+            $resultado1 = rand(0, 3);
+            $resultado2 = rand(0, 3);
+            if ($resultado1 === $resultado2) {
+                if ($resultado1 < 3) {
+                    $resultado2 = $resultado1 + 1;
+                } else {
+                    $resultado1 = $resultado2 - 1;
+                }
+            }
+            $ganador = $resultado1 > $resultado2 ? $ganador1 : $ganador2;
+
+            $semifinals[] = [
+                'id' => $i + 1,
+                'jugador1' => $ganador1,
+                'jugador1_id' => $qf1['ganador_id'],
+                'resultado1' => max($resultado1, $resultado2),
+                'jugador2' => $ganador2,
+                'jugador2_id' => $qf2['ganador_id'],
+                'resultado2' => min($resultado1, $resultado2),
+                'ganador' => $ganador,
+                'ganador_id' => $resultado1 > $resultado2 ? $qf1['ganador_id'] : $qf2['ganador_id'],
+                'estado' => 'finalizado',
+            ];
+        }
+
+        // Final
+        $finalGanador1 = $semifinals[0]['ganador'];
+        $finalGanador2 = $semifinals[1]['ganador'];
+        $resultado1 = rand(0, 3);
+        $resultado2 = rand(0, 3);
+        if ($resultado1 === $resultado2) {
+            if ($resultado1 < 3) {
+                $resultado2 = $resultado1 + 1;
+            } else {
+                $resultado1 = $resultado2 - 1;
+            }
+        }
+        $campeon = $resultado1 > $resultado2 ? $finalGanador1 : $finalGanador2;
+
+        $final = [
+            'id' => 1,
+            'jugador1' => $finalGanador1,
+            'jugador1_id' => $semifinals[0]['ganador_id'],
+            'resultado1' => max($resultado1, $resultado2),
+            'jugador2' => $finalGanador2,
+            'jugador2_id' => $semifinals[1]['ganador_id'],
+            'resultado2' => min($resultado1, $resultado2),
+            'ganador' => $campeon,
+            'ganador_id' => $resultado1 > $resultado2 ? $semifinals[0]['ganador_id'] : $semifinals[1]['ganador_id'],
+            'estado' => 'finalizado',
+        ];
+
+        return [
+            'rounds' => [
+                [
+                    'nombre' => 'Cuartos de Final',
+                    'ronda' => 'quarterfinals',
+                    'partidos' => $quarterfinals,
+                ],
+                [
+                    'nombre' => 'Semifinales',
+                    'ronda' => 'semifinals',
+                    'partidos' => $semifinals,
+                ],
+                [
+                    'nombre' => 'Final',
+                    'ronda' => 'final',
+                    'partidos' => [$final],
+                ],
+            ],
+            'campeon' => [
+                'nombre' => $campeon,
+                'id' => $final['ganador_id'],
+            ],
+        ];
     }
 }
 

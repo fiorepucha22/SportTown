@@ -23,7 +23,7 @@ export function HacerseSocio() {
   const [estado, setEstado] = useState<EstadoSocio | null>(null)
   const [payOpen, setPayOpen] = useState(false)
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
-  const [canceling, setCanceling] = useState(false)
+  const [_canceling, setCanceling] = useState(false)
   const [messageModal, setMessageModal] = useState<{
     open: boolean
     type: 'success' | 'error' | 'info'

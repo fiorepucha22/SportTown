@@ -57,6 +57,7 @@ class AdminController extends Controller
             });
 
         // Ganancias por mes (últimos 12 meses)
+        // Usar funciones MySQL/MariaDB (YEAR y MONTH)
         $gananciasPorMes = Reserva::where('estado', 'confirmada')
             ->where('fecha', '>=', Carbon::now()->subMonths(12))
             ->select(
@@ -178,6 +179,189 @@ class AdminController extends Controller
                 'inscripciones' => $inscripciones,
                 'inscripciones_por_torneo' => $inscripcionesPorTorneo,
             ],
+        ]);
+    }
+
+    public function indexTorneos(Request $request)
+    {
+        $user = $request->user();
+        
+        if (!$user || !$user->is_admin) {
+            return response()->json([
+                'message' => 'No autorizado',
+            ], 403);
+        }
+
+        $hoy = now()->startOfDay();
+        
+        $torneos = Torneo::query()
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($torneo) use ($hoy) {
+                $inscritosReales = $torneo->users()->count();
+                
+                // Calcular estado basado en fechas
+                $fechaInicio = $torneo->fecha_inicio->startOfDay();
+                $fechaFin = $torneo->fecha_fin->startOfDay();
+                $estadoFinal = $torneo->estado;
+                
+                // Si la fecha de fin ya pasó, el torneo está finalizado
+                if ($fechaFin < $hoy) {
+                    $estadoFinal = 'finalizado';
+                }
+                // Si la fecha de inicio ya pasó pero la fecha fin no, cerrar inscripciones
+                elseif ($fechaInicio <= $hoy && $estadoFinal === 'abierto') {
+                    $estadoFinal = 'cerrado';
+                }
+                
+                return [
+                    'id' => $torneo->id,
+                    'nombre' => $torneo->nombre,
+                    'deporte' => $torneo->deporte,
+                    'categoria' => $torneo->categoria,
+                    'fecha_inicio' => $torneo->fecha_inicio->format('Y-m-d'),
+                    'fecha_fin' => $torneo->fecha_fin->format('Y-m-d'),
+                    'provincia' => $torneo->provincia,
+                    'ciudad' => $torneo->ciudad,
+                    'sede' => $torneo->sede,
+                    'descripcion' => $torneo->descripcion,
+                    'cupo' => $torneo->cupo,
+                    'inscritos' => $inscritosReales,
+                    'estado' => $estadoFinal,
+                    'activo' => $torneo->activo,
+                    'created_at' => $torneo->created_at->toISOString(),
+                    'updated_at' => $torneo->updated_at->toISOString(),
+                ];
+            });
+
+        return response()->json([
+            'data' => $torneos,
+        ]);
+    }
+
+    public function storeTorneo(Request $request)
+    {
+        $user = $request->user();
+        
+        if (!$user || !$user->is_admin) {
+            return response()->json([
+                'message' => 'No autorizado',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'deporte' => 'required|string|max:255',
+            'categoria' => 'nullable|string|max:255',
+            'fecha_inicio' => 'required|date',
+            'fecha_fin' => 'required|date|after_or_equal:fecha_inicio',
+            'provincia' => 'required|string|max:255',
+            'ciudad' => 'required|string|max:255',
+            'sede' => 'nullable|string|max:255',
+            'descripcion' => 'nullable|string',
+            'cupo' => 'required|integer|min:1',
+        ]);
+
+        // Al crear, siempre comienza como 'abierto'
+        $torneo = Torneo::create([
+            'nombre' => $validated['nombre'],
+            'deporte' => $validated['deporte'],
+            'categoria' => $validated['categoria'] ?? null,
+            'fecha_inicio' => $validated['fecha_inicio'],
+            'fecha_fin' => $validated['fecha_fin'],
+            'provincia' => $validated['provincia'],
+            'ciudad' => $validated['ciudad'],
+            'sede' => $validated['sede'] ?? null,
+            'descripcion' => $validated['descripcion'] ?? null,
+            'cupo' => $validated['cupo'],
+            'inscritos' => 0,
+            'estado' => 'abierto',
+            'activo' => true,
+        ]);
+
+        return response()->json([
+            'data' => $torneo,
+            'message' => 'Torneo creado correctamente',
+        ], 201);
+    }
+
+    public function updateTorneo(Request $request, Torneo $torneo)
+    {
+        $user = $request->user();
+        
+        if (!$user || !$user->is_admin) {
+            return response()->json([
+                'message' => 'No autorizado',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'nombre' => 'sometimes|required|string|max:255',
+            'deporte' => 'sometimes|required|string|max:255',
+            'categoria' => 'nullable|string|max:255',
+            'fecha_inicio' => 'sometimes|required|date',
+            'fecha_fin' => 'sometimes|required|date|after_or_equal:fecha_inicio',
+            'provincia' => 'sometimes|required|string|max:255',
+            'ciudad' => 'sometimes|required|string|max:255',
+            'sede' => 'nullable|string|max:255',
+            'descripcion' => 'nullable|string',
+            'cupo' => 'sometimes|required|integer|min:1',
+            'activo' => 'sometimes|boolean',
+        ]);
+
+        // No permitir actualizar el estado manualmente - se calcula automáticamente
+        unset($validated['estado']);
+
+        $torneo->update($validated);
+
+        // Sincronizar inscritos reales
+        $inscritosReales = $torneo->users()->count();
+        $torneo->inscritos = $inscritosReales;
+        
+        // Calcular estado automáticamente basado en fechas y plazas
+        $hoy = now()->startOfDay();
+        $fechaInicio = $torneo->fecha_inicio->startOfDay();
+        $fechaFin = $torneo->fecha_fin->startOfDay();
+        
+        // Si la fecha de fin ya pasó, el torneo está finalizado
+        if ($fechaFin < $hoy) {
+            $torneo->estado = 'finalizado';
+        }
+        // Si la fecha de inicio ya pasó pero la fecha fin no, cerrar inscripciones
+        elseif ($fechaInicio <= $hoy && $torneo->estado === 'abierto') {
+            $torneo->estado = 'cerrado';
+        }
+        // Si se llenaron las plazas, cerrar
+        elseif ($inscritosReales >= $torneo->cupo && $torneo->estado === 'abierto') {
+            $torneo->estado = 'cerrado';
+        }
+        
+        $torneo->save();
+
+        return response()->json([
+            'data' => $torneo->fresh(),
+            'message' => 'Torneo actualizado correctamente',
+        ]);
+    }
+
+    public function destroyTorneo(Request $request, Torneo $torneo)
+    {
+        $user = $request->user();
+        
+        if (!$user || !$user->is_admin) {
+            return response()->json([
+                'message' => 'No autorizado',
+            ], 403);
+        }
+
+        // Eliminar todas las inscripciones relacionadas
+        $torneo->users()->detach();
+
+        // Eliminar el torneo
+        $torneo->delete();
+
+        return response()->json([
+            'message' => 'Torneo eliminado correctamente',
         ]);
     }
 }

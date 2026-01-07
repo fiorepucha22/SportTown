@@ -12,7 +12,9 @@ import { MisReservas } from './pages/MisReservas'
 import { MisTorneos } from './pages/MisTorneos'
 import { Admin } from './pages/Admin'
 import { AdminTorneos } from './pages/AdminTorneos'
+import { AdminGestionTorneos } from './pages/AdminGestionTorneos'
 import { HacerseSocio } from './pages/HacerseSocio'
+import { TorneoEnfrentamientos } from './pages/TorneoEnfrentamientos'
 
 export default function App() {
   return (
@@ -24,11 +26,13 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/instalaciones" element={<Instalaciones />} />
           <Route path="/torneos" element={<Torneos />} />
+          <Route path="/torneos/:id/enfrentamientos" element={<TorneoEnfrentamientos />} />
           <Route path="/mis-reservas" element={<MisReservas />} />
           <Route path="/mis-torneos" element={<MisTorneos />} />
           <Route path="/hacerse-socio" element={<HacerseSocio />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/torneos" element={<AdminTorneos />} />
+          <Route path="/admin/gestion-torneos" element={<AdminGestionTorneos />} />
           <Route path="/reservar/:id" element={<Reserva />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

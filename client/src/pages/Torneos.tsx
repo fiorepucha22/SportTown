@@ -34,7 +34,7 @@ export function Torneos() {
   const [deporte, setDeporte] = useState('')
   const [estado, setEstado] = useState('')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [_error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<Torneo[]>([])
   const [inscribiendo, setInscribiendo] = useState<number | null>(null)
   const [selectedTorneo, setSelectedTorneo] = useState<Torneo | null>(null)
@@ -233,15 +233,30 @@ export function Torneos() {
           const isCompleto = plazas === 0 || t.estado === 'cerrado'
           const isInscribiendo = inscribiendo === t.id
           
-          // Verificar si la fecha de inicio ya pasó o es hoy
+          // Verificar fechas para calcular el estado correcto
           const hoy = new Date()
           hoy.setHours(0, 0, 0, 0)
           const fechaInicio = new Date(t.fecha_inicio)
           fechaInicio.setHours(0, 0, 0, 0)
-          const fechaYaPaso = fechaInicio <= hoy
+          const fechaFin = new Date(t.fecha_fin)
+          fechaFin.setHours(0, 0, 0, 0)
           
-          // Si la fecha ya pasó o es hoy, cerrar inscripciones
-          const estadoFinal = fechaYaPaso || isCompleto ? 'cerrado' : t.estado
+          // Calcular estado basado en fechas
+          let estadoFinal = t.estado
+          // Si la fecha de fin ya pasó, el torneo está finalizado
+          if (fechaFin < hoy) {
+            estadoFinal = 'finalizado'
+          }
+          // Si la fecha de inicio ya pasó pero la fecha fin no, cerrar inscripciones
+          else if (fechaInicio <= hoy && estadoFinal === 'abierto') {
+            estadoFinal = 'cerrado'
+          }
+          // Si está completo también cerrar
+          else if (isCompleto && estadoFinal === 'abierto') {
+            estadoFinal = 'cerrado'
+          }
+          
+          const fechaYaPaso = fechaInicio <= hoy
           const yaInscrito = t.is_inscrito === true
           const esAdmin = auth.user?.is_admin === true
 

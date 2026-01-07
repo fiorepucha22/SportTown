@@ -35,7 +35,7 @@ export function MisReservas() {
     reserva: null,
     montoReembolso: 0,
   })
-  const [canceling, setCanceling] = useState(false)
+  const [_canceling, setCanceling] = useState(false)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; reserva: Reserva | null }>({
     open: false,

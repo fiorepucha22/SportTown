@@ -119,7 +119,11 @@ export function Navbar() {
                         </Link>
                         <Link className="menuItem" to="/admin/torneos" role="menuitem" onClick={() => setOpen(false)}>
                           <MaterialIcon name="emoji_events" style={{ fontSize: '18px' }} />
-                          Torneos
+                          Inscripciones Torneos
+                        </Link>
+                        <Link className="menuItem" to="/admin/gestion-torneos" role="menuitem" onClick={() => setOpen(false)}>
+                          <MaterialIcon name="edit" style={{ fontSize: '18px' }} />
+                          Gestionar Torneos
                         </Link>
                       </>
                     ) : (

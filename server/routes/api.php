@@ -32,7 +32,17 @@ Route::get('/instalaciones', [InstalacionController::class, 'index']);
 Route::get('/instalaciones/{instalacion}', [InstalacionController::class, 'show']);
 Route::get('/instalaciones/{instalacion}/disponibilidad', [ReservaController::class, 'disponibilidad']);
 
+Route::middleware('token')->group(function () {
+    // Admin CRUD instalaciones
+    Route::post('/instalaciones', [InstalacionController::class, 'store']);
+    Route::put('/instalaciones/{instalacion}', [InstalacionController::class, 'update']);
+    Route::delete('/instalaciones/{instalacion}', [InstalacionController::class, 'destroy']);
+});
+
 Route::get('/torneos', [TorneoController::class, 'index']);
+Route::get('/torneos/{torneo}', [TorneoController::class, 'show']);
+Route::get('/torneos/{torneo}/ranking', [TorneoController::class, 'ranking']);
+Route::get('/torneos/{torneo}/bracket', [TorneoController::class, 'bracket']);
 
 Route::middleware('token')->group(function () {
     // Esta ruta debe ir ANTES de las rutas con {torneo} para evitar conflictos
@@ -40,8 +50,6 @@ Route::middleware('token')->group(function () {
     Route::post('/torneos/{torneo}/inscribir', [TorneoController::class, 'inscribir']);
     Route::post('/torneos/{torneo}/desinscribir', [TorneoController::class, 'desinscribir']);
 });
-
-Route::get('/torneos/{torneo}', [TorneoController::class, 'show']);
 
 Route::middleware('token')->group(function () {
     Route::get('/reservas', [ReservaController::class, 'index']);
@@ -57,6 +65,12 @@ Route::middleware('token')->group(function () {
     // Admin routes
     Route::get('/admin/stats', [AdminController::class, 'stats']);
     Route::get('/admin/inscripciones-torneos', [AdminController::class, 'inscripcionesTorneos']);
+    
+    // Admin CRUD torneos
+    Route::get('/admin/torneos', [AdminController::class, 'indexTorneos']);
+    Route::post('/admin/torneos', [AdminController::class, 'storeTorneo']);
+    Route::put('/admin/torneos/{torneo}', [AdminController::class, 'updateTorneo']);
+    Route::delete('/admin/torneos/{torneo}', [AdminController::class, 'destroyTorneo']);
 });
 
 

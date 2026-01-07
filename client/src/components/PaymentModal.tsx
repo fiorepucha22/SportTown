@@ -58,12 +58,6 @@ function deleteCardFromStorage(cardId: string, userId: number | null): void {
   localStorage.setItem(key, JSON.stringify(filtered))
 }
 
-function deleteCardByLast4(last4: string, userId: number | null): void {
-  const cards = getSavedCards(userId)
-  const filtered = cards.filter((c) => c.last4 !== last4)
-  const key = getStorageKey(userId)
-  localStorage.setItem(key, JSON.stringify(filtered))
-}
 
 export function PaymentModal({ open, title = 'Pago seguro', amountEur, description, onCancel, onSuccess }: Props) {
   const auth = useAuth()

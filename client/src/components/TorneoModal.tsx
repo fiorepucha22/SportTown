@@ -1,4 +1,7 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MaterialIcon } from './MaterialIcon'
+import { TorneoRanking } from './TorneoRanking'
 
 type Torneo = {
   id: number
@@ -58,6 +61,9 @@ function formatRangoFechas(a: string, b: string) {
 }
 
 export function TorneoModal({ open, torneo, onClose }: Props) {
+  const [activeTab, setActiveTab] = useState<'info' | 'ranking'>('info')
+  const navigate = useNavigate()
+
   if (!open || !torneo) return null
 
   // Verificar si la fecha de inicio ya pasó o es hoy
@@ -91,8 +97,75 @@ export function TorneoModal({ open, torneo, onClose }: Props) {
           </button>
         </div>
 
-        <div className="modalBody">
-          <div className="instalacionDetailGrid">
+        <div className="modalBody" style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '8px' }}>
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '2px solid rgba(255, 255, 255, 0.1)' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('info')}
+              style={{
+                padding: '10px 16px',
+                background: activeTab === 'info' ? 'rgba(178, 102, 255, 0.2)' : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'info' ? '2px solid rgba(178, 102, 255, 1)' : '2px solid transparent',
+                color: activeTab === 'info' ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.7)',
+                fontWeight: activeTab === 'info' ? 700 : 500,
+                cursor: 'pointer',
+                fontSize: '14px',
+                transition: 'all 200ms ease',
+                marginBottom: '-2px',
+              }}
+            >
+              <MaterialIcon name="info" style={{ fontSize: '18px', marginRight: '6px', verticalAlign: 'middle' }} />
+              Información
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('ranking')}
+              style={{
+                padding: '10px 16px',
+                background: activeTab === 'ranking' ? 'rgba(178, 102, 255, 0.2)' : 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'ranking' ? '2px solid rgba(178, 102, 255, 1)' : '2px solid transparent',
+                color: activeTab === 'ranking' ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.7)',
+                fontWeight: activeTab === 'ranking' ? 700 : 500,
+                cursor: 'pointer',
+                fontSize: '14px',
+                transition: 'all 200ms ease',
+                marginBottom: '-2px',
+              }}
+            >
+              <MaterialIcon name="leaderboard" style={{ fontSize: '18px', marginRight: '6px', verticalAlign: 'middle' }} />
+              Ranking
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                navigate(`/torneos/${torneo.id}/enfrentamientos`)
+              }}
+              style={{
+                padding: '10px 16px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: '2px solid transparent',
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontSize: '14px',
+                transition: 'all 200ms ease',
+                marginBottom: '-2px',
+              }}
+              title="Ver cuadro completo de enfrentamientos"
+            >
+              <MaterialIcon name="sports_esports" style={{ fontSize: '18px', marginRight: '6px', verticalAlign: 'middle' }} />
+              Enfrentamientos
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'info' && (
+            <div className="instalacionDetailGrid">
             <div className="instalacionDetailSection">
               <h3 className="detailSectionTitle">Descripción</h3>
               <p className="detailText">{torneo.descripcion || 'Sin descripción disponible.'}</p>
@@ -139,6 +212,9 @@ export function TorneoModal({ open, torneo, onClose }: Props) {
               </div>
             </div>
           </div>
+          )}
+
+          {activeTab === 'ranking' && <TorneoRanking torneoId={torneo.id} />}
 
           <div className="instalacionDetailFooter">
             <button className="btn btnPrimary" onClick={onClose}>

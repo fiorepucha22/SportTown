@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { InstalacionModal } from '../components/InstalacionModal'
+import { InstalacionFormModal } from '../components/InstalacionFormModal'
+import { ConfirmModal } from '../components/ConfirmModal'
+import { MessageModal } from '../components/MessageModal'
+import { useAuth } from '../state/AuthContext'
+import { MaterialIcon } from '../components/MaterialIcon'
 
 export type Instalacion = {
   id: number
@@ -11,9 +16,13 @@ export type Instalacion = {
   ubicacion?: string | null
   precio_por_hora: string
   activa?: boolean
+  imagen_url?: string | null
 }
 
 export function Instalaciones() {
+  const auth = useAuth()
+  const nav = useNavigate()
+  const location = useLocation()
   const [q, setQ] = useState('')
   const [tipo, setTipo] = useState('')
   const [loading, setLoading] = useState(true)
@@ -21,6 +30,25 @@ export function Instalaciones() {
   const [items, setItems] = useState<Instalacion[]>([])
   const [selectedInstalacion, setSelectedInstalacion] = useState<Instalacion | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [formModalOpen, setFormModalOpen] = useState(false)
+  const [editingInstalacion, setEditingInstalacion] = useState<Instalacion | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ open: boolean; instalacion: Instalacion | null }>({
+    open: false,
+    instalacion: null,
+  })
+  const [messageModal, setMessageModal] = useState<{ open: boolean; type: 'success' | 'error' | 'info'; title: string; message: string }>({
+    open: false,
+    type: 'info',
+    title: '',
+    message: '',
+  })
+
+  useEffect(() => {
+    if (!auth.token && !auth.loading) {
+      nav('/login', { state: { returnTo: location.pathname }, replace: true })
+    }
+  }, [auth.token, auth.loading, nav, location.pathname])
 
   useEffect(() => {
     let cancelled = false
@@ -53,6 +81,62 @@ export function Instalaciones() {
     return Array.from(set).sort()
   }, [items])
 
+  const esAdmin = auth.user?.is_admin === true
+
+  function handleDeleteClick(instalacion: Instalacion) {
+    setDeleteConfirmModal({ open: true, instalacion })
+  }
+
+  async function handleDeleteConfirm() {
+    const instalacion = deleteConfirmModal.instalacion
+    if (!instalacion) return
+
+    setDeletingId(instalacion.id)
+    setDeleteConfirmModal({ open: false, instalacion: null })
+    
+    try {
+      await apiFetch(`/api/instalaciones/${instalacion.id}`, {
+        method: 'DELETE',
+      })
+      // Recargar la lista
+      await reloadItems()
+      setMessageModal({
+        open: true,
+        type: 'success',
+        title: 'Instalación eliminada',
+        message: `La instalación "${instalacion.nombre}" ha sido eliminada correctamente.`,
+      })
+    } catch (err) {
+      setMessageModal({
+        open: true,
+        type: 'error',
+        title: 'Error al eliminar',
+        message: err instanceof Error ? err.message : 'Error eliminando instalación',
+      })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  function handleEdit(instalacion: Instalacion) {
+    setEditingInstalacion(instalacion)
+    setFormModalOpen(true)
+  }
+
+  function handleCreate() {
+    setEditingInstalacion(null)
+    setFormModalOpen(true)
+  }
+
+  async function reloadItems() {
+    const params = new URLSearchParams()
+    if (q.trim()) params.set('q', q.trim())
+    if (tipo) params.set('tipo', tipo)
+    const qs = params.toString()
+    const res = await apiFetch<{ data: Instalacion[] }>(`/api/instalaciones${qs ? `?${qs}` : ''}`)
+    setItems(res.data)
+  }
+
   return (
     <div>
       <div className="pageHeader">
@@ -60,6 +144,12 @@ export function Instalaciones() {
           <h2 className="pageTitle">Instalaciones</h2>
           <p className="pageSubtitle">Elige tu instalación y reserva en segundos.</p>
         </div>
+        {esAdmin && (
+          <button className="btn btnPrimary" type="button" onClick={handleCreate}>
+            <MaterialIcon name="add" style={{ fontSize: '18px', marginRight: '8px', verticalAlign: 'middle' }} />
+            Crear Instalación
+          </button>
+        )}
       </div>
 
       <div className="toolbar">
@@ -98,38 +188,64 @@ export function Instalaciones() {
       {!loading && items.length === 0 ? <div className="muted">No hay instalaciones para esos filtros.</div> : null}
 
       <div className="gridCards">
-        {items.map((i, idx) => (
-          <div key={i.id} className="card" style={{ ['--stagger' as any]: idx }}>
-            <div className="cardTop">
-              <div className="badge">{formatTipo(i.tipo)}</div>
-              <div className="price">
-                <span className="priceNumber">{Number(i.precio_por_hora).toFixed(2)}€</span>
-                <span className="priceUnit">/hora</span>
+        {items.map((i, idx) => {
+          return (
+            <div key={i.id} className="card" style={{ ['--stagger' as any]: idx }}>
+              <div className="cardTop">
+                <div className="badge">{formatTipo(i.tipo)}</div>
+                <div className="price">
+                  <span className="priceNumber">{Number(i.precio_por_hora).toFixed(2)}€</span>
+                  <span className="priceUnit">/hora</span>
+                </div>
+              </div>
+
+              <h3 className="cardTitle">{i.nombre}</h3>
+              <p className="cardDesc">{i.descripcion || 'Sin descripción'}</p>
+
+              <div className="cardMeta">{i.ubicacion ? `Ubicación: ${i.ubicacion}` : 'Ubicación no especificada'}</div>
+
+              <div className="cardActions">
+                {esAdmin ? (
+                  <>
+                    <button
+                      className="btn btnGhost btnSmall"
+                      type="button"
+                      onClick={() => handleEdit(i)}
+                      title="Editar instalación"
+                    >
+                      <MaterialIcon name="edit" />
+                    </button>
+                    <button
+                      className="btn btnGhost btnSmall"
+                      type="button"
+                      onClick={() => handleDeleteClick(i)}
+                      disabled={deletingId === i.id}
+                      title="Eliminar instalación"
+                    >
+                      <MaterialIcon name={deletingId === i.id ? 'hourglass_empty' : 'delete'} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link className="btn btnPrimary" to={`/reservar/${i.id}`}>
+                      Reservar
+                    </Link>
+                    <button
+                      className="btn btnGhost"
+                      type="button"
+                      onClick={() => {
+                        setSelectedInstalacion(i)
+                        setModalOpen(true)
+                      }}
+                    >
+                      Ver detalle
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-
-            <h3 className="cardTitle">{i.nombre}</h3>
-            <p className="cardDesc">{i.descripcion || 'Sin descripción'}</p>
-
-            <div className="cardMeta">{i.ubicacion ? `Ubicación: ${i.ubicacion}` : 'Ubicación no especificada'}</div>
-
-            <div className="cardActions">
-              <Link className="btn btnPrimary" to={`/reservar/${i.id}`}>
-                Reservar
-              </Link>
-              <button
-                className="btn btnGhost"
-                type="button"
-                onClick={() => {
-                  setSelectedInstalacion(i)
-                  setModalOpen(true)
-                }}
-              >
-                Ver detalle
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <InstalacionModal
@@ -139,6 +255,39 @@ export function Instalaciones() {
           setModalOpen(false)
           setSelectedInstalacion(null)
         }}
+      />
+
+      <InstalacionFormModal
+        open={formModalOpen}
+        instalacion={editingInstalacion}
+        onClose={() => {
+          setFormModalOpen(false)
+          setEditingInstalacion(null)
+        }}
+        onSuccess={reloadItems}
+      />
+
+      <ConfirmModal
+        open={deleteConfirmModal.open}
+        title="Eliminar instalación"
+        message={
+          deleteConfirmModal.instalacion
+            ? `¿Estás seguro de que deseas eliminar la instalación "${deleteConfirmModal.instalacion.nombre}"? Esta acción no se puede deshacer.`
+            : ''
+        }
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteConfirmModal({ open: false, instalacion: null })}
+        confirmText="Sí, eliminar"
+        cancelText="Cancelar"
+        confirmVariant="danger"
+      />
+
+      <MessageModal
+        open={messageModal.open}
+        type={messageModal.type}
+        title={messageModal.title}
+        message={messageModal.message}
+        onClose={() => setMessageModal({ ...messageModal, open: false })}
       />
     </div>
   )
