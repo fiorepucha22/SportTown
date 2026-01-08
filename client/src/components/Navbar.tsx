@@ -1,3 +1,5 @@
+// Barra de navegación principal con logo, enlaces, menú de perfil y gestión de autenticación
+// Muestra diferentes opciones según el rol del usuario (admin/usuario) y estado de autenticación
 import { Link, NavLink } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../state/AuthContext'

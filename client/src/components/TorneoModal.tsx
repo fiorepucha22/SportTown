@@ -1,3 +1,5 @@
+// Modal para mostrar detalles de un torneo con pestañas de información y ranking
+// Incluye navegación a la página de enfrentamientos y cálculo automático de estado
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MaterialIcon } from './MaterialIcon'

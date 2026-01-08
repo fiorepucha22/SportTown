@@ -1,3 +1,5 @@
+// Página de inicio con hero section y tarjetas de características principales
+// Muestra botones de acción diferentes según el estado de autenticación del usuario
 import { FeatureCard } from '../components/FeatureCard'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext'

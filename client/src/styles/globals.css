@@ -1,5 +1,8 @@
+/* Estilos globales de la aplicación - Variables CSS, reset y estilos base */
+/* Define la paleta de colores, tipografías, sombras y efectos visuales del tema */
+
 :root {
-  /* Brand */
+  /* Brand - Paleta de colores principal */
   --st-electric-blue: #0077ff;
   --st-neon-lilac: #b266ff;
   --st-fuchsia: #ff4fd8;

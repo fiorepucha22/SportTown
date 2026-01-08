@@ -1,11 +1,14 @@
+// Componente para mostrar el ranking de jugadores de un torneo
+// Muestra posición, puntos, partidos jugados/ganados/perdidos y win rate
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../lib/api'
 import { MaterialIcon } from './MaterialIcon'
 
 type Props = {
-  torneoId: number
+  torneoId: number // ID del torneo para cargar su ranking
 }
 
+// Estructura de datos de una entrada en el ranking
 type RankingEntry = {
   posicion: number
   jugador_id: number
@@ -14,9 +17,10 @@ type RankingEntry = {
   partidos_jugados: number
   partidos_ganados: number
   partidos_perdidos: number
-  win_rate: number
+  win_rate: number // Porcentaje de victorias
 }
 
+// Estructura de datos completa del ranking
 type RankingData = {
   torneo_id: number
   torneo_nombre: string
@@ -28,6 +32,8 @@ export function TorneoRanking({ torneoId }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<RankingData | null>(null)
 
+  // Carga el ranking del torneo desde la API
+  // Usa flag 'cancelled' para evitar actualizaciones si el componente se desmonta
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -44,7 +50,7 @@ export function TorneoRanking({ torneoId }: Props) {
     }
     load()
     return () => {
-      cancelled = true
+      cancelled = true // Cancela la actualización si el componente se desmonta
     }
   }, [torneoId])
 
@@ -65,6 +71,7 @@ export function TorneoRanking({ torneoId }: Props) {
     )
   }
 
+  // Estado vacío: no hay datos de ranking disponibles
   if (!data || !data.ranking || data.ranking.length === 0) {
     return (
       <div className="muted" style={{ padding: '20px', textAlign: 'center' }}>
@@ -73,6 +80,7 @@ export function TorneoRanking({ torneoId }: Props) {
     )
   }
 
+  // Retorna el icono de medalla según la posición (oro, plata, bronce)
   const getMedalIcon = (posicion: number) => {
     if (posicion === 1) return <MaterialIcon name="emoji_events" style={{ color: '#FFD700', fontSize: '24px' }} />
     if (posicion === 2) return <MaterialIcon name="emoji_events" style={{ color: '#C0C0C0', fontSize: '24px' }} />
@@ -98,12 +106,13 @@ export function TorneoRanking({ torneoId }: Props) {
             </tr>
           </thead>
           <tbody>
+            {/* Renderiza cada entrada del ranking con estilos especiales para los top 3 */}
             {data.ranking.map((entry, idx) => (
               <tr
                 key={entry.jugador_id}
                 style={{
                   borderBottom: idx < data.ranking.length - 1 ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
-                  background: entry.posicion <= 3 ? 'rgba(178, 102, 255, 0.08)' : 'transparent',
+                  background: entry.posicion <= 3 ? 'rgba(178, 102, 255, 0.08)' : 'transparent', // Destaca los top 3
                 }}
               >
                 <td style={{ padding: '12px', fontWeight: 700, color: entry.posicion <= 3 ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)' }}>

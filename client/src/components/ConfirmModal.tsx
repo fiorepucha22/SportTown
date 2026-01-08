@@ -1,3 +1,5 @@
+// Modal de confirmación genérico para acciones que requieren confirmación del usuario
+// Permite personalizar título, mensaje, textos de botones y variante del botón de confirmación
 import { MaterialIcon } from './MaterialIcon'
 
 type Props = {
@@ -19,12 +21,15 @@ export function ConfirmModal({
   onCancel,
   confirmText = 'Aceptar',
   cancelText = 'Cancelar',
-  confirmVariant = 'primary',
+  confirmVariant = 'primary', // 'primary' o 'danger' para cambiar el color del botón
 }: Props) {
+  // No renderiza nada si el modal está cerrado
   if (!open) return null
 
   return (
+    // Overlay que cierra el modal al hacer clic fuera
     <div className="modalOverlay" role="presentation" onMouseDown={onCancel}>
+      {/* stopPropagation evita que el clic en el modal cierre el overlay */}
       <div className="modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
         <div className="modalHeader">
           <div>
@@ -43,10 +48,12 @@ export function ConfirmModal({
             {message}
           </p>
 
+          {/* Botones de acción: cancelar y confirmar */}
           <div className="instalacionDetailFooter" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
             <button className="btn btnGhost" onClick={onCancel}>
               {cancelText}
             </button>
+            {/* El botón de confirmar cambia de color si es variante 'danger' (acciones destructivas) */}
             <button
               className="btn btnPrimary"
               onClick={onConfirm}

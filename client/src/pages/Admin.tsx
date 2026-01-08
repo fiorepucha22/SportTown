@@ -1,3 +1,5 @@
+// Panel de administración con estadísticas, gráficos y tabla de reservas
+// Muestra métricas de reservas, ganancias y visualizaciones con Recharts
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'

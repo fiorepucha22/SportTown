@@ -1,3 +1,5 @@
+// Modal para mostrar mensajes al usuario (éxito, error o información)
+// Muestra icono y color según el tipo de mensaje
 import { MaterialIcon } from './MaterialIcon'
 
 type Props = {

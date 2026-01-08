@@ -1,3 +1,5 @@
+// Modal de pago simulado con formulario de tarjeta de crédito
+// Permite guardar tarjetas en localStorage, validación de campos y simulación de procesamiento
 import { useEffect, useMemo, useState } from 'react'
 import { MaterialIcon } from './MaterialIcon'
 import { useAuth } from '../state/AuthContext'
@@ -11,37 +13,42 @@ type Props = {
   onSuccess: (paymentId: string) => void
 }
 
+// Estados del flujo de pago
 type Step = 'form' | 'processing' | 'success' | 'failed'
 
+// Estructura de una tarjeta guardada en localStorage
 type SavedCard = {
   id: string
   name: string
   number: string
   exp: string
   cvc: string
-  last4: string
-  savedAt: number
+  last4: string // Últimos 4 dígitos para mostrar
+  savedAt: number // Timestamp de cuando se guardó
 }
 
+// Genera la clave de localStorage según el usuario (permite tarjetas por usuario)
 function getStorageKey(userId: number | null): string {
   if (!userId) return 'sporttown_saved_cards_guest'
   return `sporttown_saved_cards_user_${userId}`
 }
 
+// Obtiene las tarjetas guardadas del localStorage del usuario actual
 function getSavedCards(userId: number | null): SavedCard[] {
   try {
     const key = getStorageKey(userId)
     const stored = localStorage.getItem(key)
     return stored ? JSON.parse(stored) : []
   } catch {
-    return []
+    return [] // Retorna array vacío si hay error al parsear
   }
 }
 
+// Guarda una tarjeta en localStorage con ID único y timestamp
 function saveCardToStorage(card: Omit<SavedCard, 'id' | 'savedAt'>, userId: number | null): SavedCard {
   const saved: SavedCard = {
     ...card,
-    id: `card_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    id: `card_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`, // ID único basado en timestamp y random
     savedAt: Date.now(),
   }
   const cards = getSavedCards(userId)
@@ -51,6 +58,7 @@ function saveCardToStorage(card: Omit<SavedCard, 'id' | 'savedAt'>, userId: numb
   return saved
 }
 
+// Elimina una tarjeta del localStorage por su ID
 function deleteCardFromStorage(cardId: string, userId: number | null): void {
   const cards = getSavedCards(userId)
   const filtered = cards.filter((c) => c.id !== cardId)
@@ -108,20 +116,26 @@ export function PaymentModal({ open, title = 'Pago seguro', amountEur, descripti
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, onCancel])
 
+  // Normaliza el número de tarjeta eliminando espacios para validación
   const normalized = useMemo(() => number.replace(/\s+/g, ''), [number])
+  // Extrae los últimos 4 dígitos para mostrar en confirmación
   const last4 = useMemo(() => normalized.slice(-4), [normalized])
   
+  // Validación completa del formulario de pago
   const validation = useMemo(() => {
     const errors: string[] = []
     
+    // Validación del nombre del titular
     if (name.trim().length < 2) {
       errors.push('El nombre del titular debe tener al menos 2 caracteres')
     }
     
+    // Validación del número de tarjeta (16 dígitos)
     if (!/^\d{16}$/.test(normalized)) {
       errors.push('La tarjeta debe tener exactamente 16 dígitos')
     }
     
+    // Validación de fecha de expiración (formato MM/YY)
     if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(exp.trim())) {
       errors.push('La fecha de expiración debe tener el formato MM/YY (ej: 12/27)')
     } else {
@@ -134,6 +148,7 @@ export function PaymentModal({ open, title = 'Pago seguro', amountEur, descripti
       }
     }
     
+    // Validación del CVC (3 o 4 dígitos)
     if (!/^\d{3,4}$/.test(cvc.trim())) {
       errors.push('El CVC debe tener 3 o 4 dígitos')
     }
@@ -164,12 +179,15 @@ export function PaymentModal({ open, title = 'Pago seguro', amountEur, descripti
     setSaveCard(false)
   }
 
+  // Simula el proceso de pago con delays y probabilidad de éxito
   async function simulatePay() {
     setError(null)
     setStep('processing')
 
+    // Simula el tiempo de procesamiento del pago
     await sleep(450)
     await sleep(550)
+    // 92% de probabilidad de éxito (8% de rechazo)
     const ok = Math.random() > 0.08
 
     if (!ok) {
@@ -179,9 +197,10 @@ export function PaymentModal({ open, title = 'Pago seguro', amountEur, descripti
     }
 
     setStep('success')
+    // Genera un ID de pago único
     const paymentId = `pay_${Date.now()}_${Math.floor(Math.random() * 10000)}`
     
-    // Guardar tarjeta si el usuario marcó la opción
+    // Guardar tarjeta si el usuario marcó la opción y el formulario es válido
     if (saveCard && isValid) {
       saveCardToStorage({
         name: name.trim(),
@@ -194,7 +213,7 @@ export function PaymentModal({ open, title = 'Pago seguro', amountEur, descripti
     }
     
     await sleep(350)
-    onSuccess(paymentId)
+    onSuccess(paymentId) // Notifica el éxito del pago al componente padre
   }
 
   if (!open) return null

@@ -1,3 +1,5 @@
+// Componente para visualizar el cuadro de enfrentamientos de un torneo
+// Muestra rondas, partidos, resultados y campeón del torneo
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../lib/api'
 import { MaterialIcon } from './MaterialIcon'

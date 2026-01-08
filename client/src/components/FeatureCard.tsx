@@ -1,3 +1,5 @@
+// Tarjeta reutilizable para mostrar características con icono, título y descripción
+// Soporta animación escalonada mediante CSS variable para efectos visuales
 type Props = {
   title: string
   description: string

@@ -1,3 +1,5 @@
+// Modal de formulario para crear o editar instalaciones deportivas
+// Permite a los administradores gestionar instalaciones (CRUD)
 import type { FormEvent } from 'react'
 import { useState, useEffect } from 'react'
 import type { Instalacion } from '../pages/Instalaciones'

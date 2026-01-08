@@ -1,3 +1,5 @@
+// Modal para mostrar detalles completos de una instalación deportiva
+// Muestra información: descripción, ubicación, precio, tipo y estado
 import type { Instalacion } from '../pages/Instalaciones'
 import { MaterialIcon } from './MaterialIcon'
 

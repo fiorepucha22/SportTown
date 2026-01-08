@@ -1,3 +1,5 @@
+// Página de inicio de sesión con formulario de email y contraseña
+// Redirige al usuario a la página desde la que fue enviado después del login
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'

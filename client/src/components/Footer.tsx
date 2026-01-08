@@ -1,3 +1,5 @@
+// Pie de página con enlaces de navegación, información de contacto y redes sociales
+// Muestra diferentes enlaces según el estado de autenticación y rol del usuario
 import { Link } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext'
 

@@ -1,3 +1,5 @@
+// Componente wrapper para iconos de Material Icons
+// Simplifica el uso de iconos Material Design en toda la aplicación
 type Props = {
   name: string
   className?: string

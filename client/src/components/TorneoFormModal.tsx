@@ -1,3 +1,5 @@
+// Modal de formulario para crear o editar torneos deportivos
+// Genera automáticamente el nombre del torneo y valida fechas y cupos
 import { useEffect, useState } from 'react'
 import { MaterialIcon } from './MaterialIcon'
 

@@ -1,3 +1,5 @@
+// Página principal para listar y gestionar instalaciones deportivas
+// Permite buscar, filtrar, ver detalles, reservar (usuarios) o editar/eliminar (admins)
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
@@ -44,21 +46,26 @@ export function Instalaciones() {
     message: '',
   })
 
+  // Redirige al login si el usuario no está autenticado
+  // Guarda la ruta actual para volver después del login
   useEffect(() => {
     if (!auth.token && !auth.loading) {
       nav('/login', { state: { returnTo: location.pathname }, replace: true })
     }
   }, [auth.token, auth.loading, nav, location.pathname])
 
+  // Carga las instalaciones desde la API con filtros de búsqueda y tipo
+  // Se ejecuta cuando cambian los filtros (q o tipo)
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
       setError(null)
       try {
+        // Construye los parámetros de búsqueda
         const params = new URLSearchParams()
-        if (q.trim()) params.set('q', q.trim())
-        if (tipo) params.set('tipo', tipo)
+        if (q.trim()) params.set('q', q.trim()) // Búsqueda por texto
+        if (tipo) params.set('tipo', tipo) // Filtro por tipo
         const qs = params.toString()
 
         const res = await apiFetch<{ data: Instalacion[] }>(`/api/instalaciones${qs ? `?${qs}` : ''}`)
@@ -72,33 +79,37 @@ export function Instalaciones() {
 
     load()
     return () => {
-      cancelled = true
+      cancelled = true // Cancela la actualización si el componente se desmonta
     }
   }, [q, tipo])
 
+  // Extrae los tipos únicos de instalaciones para el filtro
   const tipos = useMemo(() => {
     const set = new Set(items.map((i) => i.tipo).filter(Boolean))
     return Array.from(set).sort()
   }, [items])
 
+  // Verifica si el usuario actual es administrador
   const esAdmin = auth.user?.is_admin === true
 
+  // Abre el modal de confirmación para eliminar una instalación
   function handleDeleteClick(instalacion: Instalacion) {
     setDeleteConfirmModal({ open: true, instalacion })
   }
 
+  // Ejecuta la eliminación de la instalación después de la confirmación
   async function handleDeleteConfirm() {
     const instalacion = deleteConfirmModal.instalacion
     if (!instalacion) return
 
-    setDeletingId(instalacion.id)
+    setDeletingId(instalacion.id) // Marca la instalación como "eliminándose"
     setDeleteConfirmModal({ open: false, instalacion: null })
     
     try {
       await apiFetch(`/api/instalaciones/${instalacion.id}`, {
         method: 'DELETE',
       })
-      // Recargar la lista
+      // Recargar la lista para reflejar los cambios
       await reloadItems()
       setMessageModal({
         open: true,
@@ -118,16 +129,19 @@ export function Instalaciones() {
     }
   }
 
+  // Abre el modal de edición con los datos de la instalación seleccionada
   function handleEdit(instalacion: Instalacion) {
     setEditingInstalacion(instalacion)
     setFormModalOpen(true)
   }
 
+  // Abre el modal de creación (sin instalación seleccionada)
   function handleCreate() {
     setEditingInstalacion(null)
     setFormModalOpen(true)
   }
 
+  // Recarga la lista de instalaciones manteniendo los filtros actuales
   async function reloadItems() {
     const params = new URLSearchParams()
     if (q.trim()) params.set('q', q.trim())
@@ -187,6 +201,7 @@ export function Instalaciones() {
 
       {!loading && items.length === 0 ? <div className="muted">No hay instalaciones para esos filtros.</div> : null}
 
+      {/* Grid de tarjetas de instalaciones */}
       <div className="gridCards">
         {items.map((i, idx) => {
           return (
@@ -204,6 +219,7 @@ export function Instalaciones() {
 
               <div className="cardMeta">{i.ubicacion ? `Ubicación: ${i.ubicacion}` : 'Ubicación no especificada'}</div>
 
+              {/* Acciones diferentes según el rol: admin puede editar/eliminar, usuario puede reservar */}
               <div className="cardActions">
                 {esAdmin ? (
                   <>
