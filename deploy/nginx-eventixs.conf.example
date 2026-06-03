@@ -1,0 +1,42 @@
+# Ejemplo para VPS Ubuntu: Nginx + PHP 8.3-FPM + React (dist) + Laravel (backend/public)
+# Copiar a /etc/nginx/sites-available/eventixs y enlazar en sites-enabled.
+#
+# Ajustar rutas absolutas según tu despliegue.
+
+server {
+    listen 80;
+    server_name eventixs.es www.eventixs.es;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name eventixs.es www.eventixs.es;
+
+    # ssl_certificate /etc/letsencrypt/live/eventixs.es/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/eventixs.es/privkey.pem;
+
+    root /var/www/eventixs/web/dist;
+    index index.html;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    # SPA React (build Vite → dist)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API Laravel vía PHP-FPM (sin artisan serve)
+    location /api {
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME /var/www/eventixs/backend/public/index.php;
+        fastcgi_param REQUEST_URI $request_uri;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}

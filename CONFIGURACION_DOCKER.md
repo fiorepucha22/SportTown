@@ -1,12 +1,14 @@
-# Configuración de .env para Docker
+# Configuración de .env para Docker (solo desarrollo local)
+
+> **Producción (VPS):** ver `DESPLIEGUE_VPS.md`. Usar `DB_HOST=127.0.0.1`, sin Docker.
 
 ## ⚠️ Problema Actual
 
-Tu archivo `server/.env` está configurado para desarrollo local sin Docker. Necesitas actualizarlo para que funcione con Docker.
+Tu archivo `backend/.env` está configurado para desarrollo local sin Docker. Necesitas actualizarlo para que funcione con Docker Compose.
 
 ## 🔧 Solución Rápida
 
-Edita el archivo `server/.env` y cambia estas líneas:
+Edita el archivo `backend/.env` y cambia estas líneas:
 
 ### ANTES (incorrecto para Docker):
 ```env
@@ -24,7 +26,7 @@ DB_PASSWORD=fiore
 
 ## 📝 Configuración Completa para Docker
 
-Asegúrate de que tu `server/.env` tenga estas líneas de base de datos:
+Asegúrate de que tu `backend/.env` tenga estas líneas de base de datos:
 
 ```env
 DB_CONNECTION=mariadb
@@ -37,7 +39,7 @@ DB_PASSWORD=fiore
 
 ## 🚀 Pasos para Aplicar los Cambios
 
-1. **Edita `server/.env`** y actualiza las líneas de base de datos como se muestra arriba
+1. **Edita `backend/.env`** y actualiza las líneas de base de datos como se muestra arriba
 
 2. **Reinicia los contenedores:**
    ```bash
@@ -59,11 +61,11 @@ En Docker Compose, los servicios se comunican usando los **nombres de los servic
 
 ## 📋 Script Automático (Opcional)
 
-Si estás en Linux/Mac, puedes usar el script `server/fix-env-docker.sh`:
+Si estás en Linux/Mac, puedes usar el script `backend/fix-env-docker.sh`:
 
 ```bash
-chmod +x server/fix-env-docker.sh
-./server/fix-env-docker.sh
+chmod +x backend/fix-env-docker.sh
+./backend/fix-env-docker.sh
 ```
 
 ## ⚡ Nota Importante

@@ -1,5 +1,21 @@
 <?php
 
+$devOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+];
+
+$configured = array_values(array_filter(array_map(
+    'trim',
+    explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
+)));
+
+$productionOrigins = array_values(array_filter([
+    rtrim((string) env('APP_URL', 'https://eventixs.es'), '/'),
+]));
+
 return [
 
     /*
@@ -7,11 +23,8 @@ return [
     | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
     |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+    | En producción con Nginx, el frontend y /api comparten dominio (sin CORS).
+    | Estos orígenes cubren www, preproducción y desarrollo con Vite.
     |
     */
 
@@ -19,13 +32,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    // Dev servers: Vite defaults to 5173, but this project uses 3000 in the client.
-    'allowed_origins' => [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-        'http://localhost:3000',
-        'http://127.0.0.1:3000',
-    ],
+    'allowed_origins' => $configured !== []
+        ? $configured
+        : (env('APP_ENV') === 'production' ? $productionOrigins : $devOrigins),
 
     'allowed_origins_patterns' => [],
 
@@ -38,5 +47,3 @@ return [
     'supports_credentials' => false,
 
 ];
-
-

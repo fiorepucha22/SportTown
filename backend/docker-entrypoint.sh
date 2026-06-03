@@ -1,4 +1,5 @@
 #!/bin/sh
+# Solo desarrollo Docker — en producción usar Nginx + PHP-FPM (ver DESPLIEGUE_VPS.md)
 set -e
 
 echo "Esperando a la base de datos..."
