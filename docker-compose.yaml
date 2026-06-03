@@ -1,4 +1,22 @@
 services:
+  db:
+    image: mariadb:10.4
+    environment:
+      MYSQL_ROOT_PASSWORD: fiore
+      MYSQL_DATABASE: instalacionesdep
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pfiore"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   server:
     build: ./server
     ports:
@@ -6,7 +24,14 @@ services:
     env_file:
       - ./server/.env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=instalacionesdep
+      - DB_USERNAME=root
+      - DB_PASSWORD=fiore
 
   client:
     build: ./client
@@ -14,16 +39,6 @@ services:
       - "3000:80"
     depends_on:
       - server
-
-  db:
-    image: mariadb:10.4
-    environment:
-      MYSQL_ROOT_PASSWORD: fiore
-      MYSQL_DATABASE: instalacionesdep
-    ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
 
 volumes:
   db_data:
