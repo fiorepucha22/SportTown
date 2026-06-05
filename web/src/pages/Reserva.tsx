@@ -2,6 +2,7 @@ import type { FormEvent } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { isSocioActivo } from '../lib/auth'
 import { PaymentModal } from '../components/PaymentModal'
 import { useAuth } from '../state/AuthContext'
 import { MaterialIcon } from '../components/MaterialIcon'
@@ -15,16 +16,20 @@ type Instalacion = {
   precio_por_hora: string
 }
 
+type ReservaItem = {
+  id: number
+  instalacion_id: number
+  fecha: string
+  hora_inicio: string
+  hora_fin: string
+  precio_total: string
+  estado: string
+}
+
 type ReservaResponse = {
-  data: {
-    id: number
-    instalacion_id: number
-    fecha: string
-    hora_inicio: string
-    hora_fin: string
-    precio_total: string
-    estado: string
-  }
+  data: ReservaItem
+  reservas?: ReservaItem[]
+  meta?: { precio_base: number; descuento_socio: number; precio_final: number; es_socio: boolean; total_reservas?: number }
 }
 
 type DisponibilidadResponse = {
@@ -39,6 +44,10 @@ type DisponibilidadResponse = {
   }
 }
 
+const SLOT = 60
+const OPEN = 8 * 60
+const CLOSE = 22 * 60
+
 export function Reserva() {
   const { id } = useParams()
   const instalacionId = Number(id)
@@ -52,10 +61,10 @@ export function Reserva() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
-  const [horaInicio, setHoraInicio] = useState('18:00')
-  const [horaFin, setHoraFin] = useState('19:00')
+  // Conjunto de horarios seleccionados (cada uno de 1h), identificados por su minuto de inicio
+  const [selected, setSelected] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
-  const [ok, setOk] = useState<ReservaResponse['data'] | null>(null)
+  const [ok, setOk] = useState<{ total: number; importe: number } | null>(null)
   const [payOpen, setPayOpen] = useState(false)
   const [paymentId, setPaymentId] = useState<string | null>(null)
 
@@ -94,6 +103,13 @@ export function Reserva() {
     }
   }, [instalacionId])
 
+  // Al cambiar de fecha, limpiar la selección (los slots ya no son válidos)
+  useEffect(() => {
+    setSelected([])
+    setOk(null)
+    setActionError(null)
+  }, [fecha])
+
   const loadDisponibilidad = useCallback(async () => {
     if (!Number.isFinite(instalacionId) || instalacionId <= 0) return
     setDispLoading(true)
@@ -108,7 +124,6 @@ export function Reserva() {
         })) ?? []
       setBusy(ranges.filter((x) => x.endMin > x.startMin))
     } catch {
-      // si falla disponibilidad, no rompemos la pantalla; solo no podemos bloquear slots.
       setBusy([])
     } finally {
       setDispLoading(false)
@@ -119,39 +134,22 @@ export function Reserva() {
     void loadDisponibilidad()
   }, [loadDisponibilidad])
 
-  const esSocioActivo = useMemo(() => {
-    if (!auth.user?.es_socio || !auth.user?.fecha_fin_socio) return false
-    const fechaFin = new Date(auth.user.fecha_fin_socio)
-    return fechaFin >= new Date()
-  }, [auth.user])
+  const esSocioActivo = useMemo(() => isSocioActivo(auth.user), [auth.user])
+
+  const horasSeleccionadas = selected.length // cada slot es de 1 hora
 
   const precioEstimado = useMemo(() => {
-    if (!instalacion) return null
-    const start = toMinutes(horaInicio)
-    const end = toMinutes(horaFin)
-    if (start == null || end == null || end <= start) return null
-    const hours = (end - start) / 60
-    return Number(instalacion.precio_por_hora) * hours
-  }, [instalacion, horaInicio, horaFin])
+    if (!instalacion || horasSeleccionadas === 0) return null
+    return Number(instalacion.precio_por_hora) * horasSeleccionadas
+  }, [instalacion, horasSeleccionadas])
 
   const precioConDescuento = useMemo(() => {
-    if (!precioEstimado || !esSocioActivo) return null
+    if (precioEstimado == null || !esSocioActivo) return null
     return precioEstimado * 0.85 // 15% de descuento
   }, [precioEstimado, esSocioActivo])
 
-  const isSelectedBusy = useMemo(() => {
-    const start = toMinutes(horaInicio)
-    const end = toMinutes(horaFin)
-    if (start == null || end == null) return false
-    return busy.some((b) => overlaps(start, end, b.startMin, b.endMin))
-  }, [busy, horaInicio, horaFin])
-
   const slots = useMemo(() => {
-    const OPEN = 8 * 60
-    const CLOSE = 22 * 60
-    const SLOT = 60
     const out: Array<{ startMin: number; endMin: number; label: string; busy: boolean; selected: boolean }> = []
-    const selectedStart = toMinutes(horaInicio)
     for (let m = OPEN; m + SLOT <= CLOSE; m += SLOT) {
       const startMin = m
       const endMin = m + SLOT
@@ -162,42 +160,43 @@ export function Reserva() {
         endMin,
         label,
         busy: busySlot,
-        selected: selectedStart === startMin,
+        selected: selected.includes(startMin),
       })
     }
     return out
-  }, [busy, horaInicio])
+  }, [busy, selected])
 
   const dayPills = useMemo(() => {
     const now = new Date()
-    const days = Array.from({ length: 7 }, (_, i) => {
+    return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(now)
       d.setDate(now.getDate() + i)
       const iso = d.toISOString().slice(0, 10)
       const label = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit' }).format(d)
       return { iso, label }
     })
-    return days
   }, [])
+
+  function toggleSlot(startMin: number) {
+    setActionError(null)
+    setOk(null)
+    setSelected((prev) =>
+      prev.includes(startMin) ? prev.filter((m) => m !== startMin) : [...prev, startMin].sort((a, b) => a - b),
+    )
+  }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     setActionError(null)
     setOk(null)
 
-    // Los administradores no pueden reservar instalaciones
     if (auth.user?.is_admin) {
       setActionError('Los administradores no pueden reservar instalaciones.')
       return
     }
 
-    if (precioEstimado == null) {
-      setActionError('Selecciona un horario válido antes de pagar.')
-      return
-    }
-
-    if (isSelectedBusy) {
-      setActionError('Ese horario ya está reservado. Elige otro disponible.')
+    if (selected.length === 0) {
+      setActionError('Selecciona al menos un horario para reservar.')
       return
     }
 
@@ -208,29 +207,33 @@ export function Reserva() {
     setPaymentId(paidId)
     setSaving(true)
     try {
-      const res = await apiFetch<ReservaResponse & { meta?: { precio_base: number; descuento_socio: number; precio_final: number; es_socio: boolean } }>('/api/reservas', {
+      const slotsPayload = selected.map((startMin) => ({
+        hora_inicio: fromMinutes(startMin),
+        hora_fin: fromMinutes(startMin + SLOT),
+      }))
+
+      const res = await apiFetch<ReservaResponse>('/api/reservas', {
         method: 'POST',
         body: JSON.stringify({
           instalacion_id: instalacionId,
           fecha,
-          hora_inicio: horaInicio,
-          hora_fin: horaFin,
-          payment_id: paidId, 
+          slots: slotsPayload,
+          payment_id: paidId,
         }),
       })
-      setOk(res.data)
+
+      const total = res.meta?.total_reservas ?? res.reservas?.length ?? 1
+      const importe = res.meta?.precio_final ?? Number(res.data.precio_total)
+      setOk({ total, importe })
+      setSelected([])
       setPayOpen(false)
-      // Recargar disponibilidad automáticamente después de reservar
       await loadDisponibilidad()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error creando reserva'
-      if (msg.toLowerCase().includes('ya existe una reserva')) {
-        setActionError('Ese horario se reservó justo ahora. No se confirmó la reserva. Elige otro horario.')
-        // Recargar disponibilidad para actualizar la UI
-        await loadDisponibilidad()
-      } else {
-        setActionError(msg)
-      }
+      setActionError(msg)
+      // Si algún horario se ocupó, refrescar disponibilidad
+      await loadDisponibilidad()
+      setPayOpen(false)
     } finally {
       setSaving(false)
     }
@@ -239,6 +242,8 @@ export function Reserva() {
   if (loading) return <div className="muted">Cargando…</div>
   if (loadError) return <div className="alert alertError">{loadError}</div>
   if (!instalacion) return <div className="muted">No encontrado</div>
+
+  const importeFinal = precioConDescuento ?? precioEstimado ?? 0
 
   return (
     <div>
@@ -256,7 +261,9 @@ export function Reserva() {
 
       {ok ? (
         <div className="alert alertOk">
-          Reserva confirmada (#{ok.id}) · {ok.fecha} {ok.hora_inicio}-{ok.hora_fin} · {Number(ok.precio_total).toFixed(2)}€
+          {ok.total > 1
+            ? `${ok.total} reservas confirmadas · Total ${ok.importe.toFixed(2)}€`
+            : `Reserva confirmada · ${ok.importe.toFixed(2)}€`}
           {paymentId ? <div className="muted">Pago: {paymentId}</div> : null}
         </div>
       ) : null}
@@ -274,14 +281,7 @@ export function Reserva() {
             <label className="label" htmlFor="fecha">
               Fecha
             </label>
-            <input 
-              id="fecha" 
-              className="input inputReadonly" 
-              type="date" 
-              value={fecha} 
-              readOnly
-              required 
-            />
+            <input id="fecha" className="input inputReadonly" type="date" value={fecha} readOnly required />
             <div className="fieldHint">Selecciona una fecha usando los botones de abajo</div>
           </div>
 
@@ -300,8 +300,10 @@ export function Reserva() {
 
           <div className="field">
             <div className="labelRow">
-              <label className="label">Horario</label>
-              <span className="muted">{dispLoading ? 'Cargando disponibilidad…' : 'Selecciona un slot (1h)'}</span>
+              <label className="label">Horarios</label>
+              <span className="muted">
+                {dispLoading ? 'Cargando disponibilidad…' : 'Puedes seleccionar varios slots (1h cada uno)'}
+              </span>
             </div>
             <div className="slotGrid" role="list">
               {slots.map((s) => (
@@ -311,14 +313,13 @@ export function Reserva() {
                   role="listitem"
                   className={`slotBtn ${s.busy ? 'slotBusy' : ''} ${s.selected ? 'slotSelected' : ''}`}
                   disabled={s.busy || saving}
-                  onClick={() => {
-                    setHoraInicio(fromMinutes(s.startMin))
-                    setHoraFin(fromMinutes(s.endMin))
-                  }}
+                  onClick={() => toggleSlot(s.startMin)}
                 >
                   <span className="slotTime">{s.label}</span>
                   {s.busy ? (
                     <span className="slotTag slotTagBusy">Ocupado</span>
+                  ) : s.selected ? (
+                    <span className="slotTag slotTagFree">Seleccionado</span>
                   ) : (
                     <span className="slotTag slotTagFree">Libre</span>
                   )}
@@ -331,6 +332,10 @@ export function Reserva() {
             <div className="reservaSummaryRow">
               <span className="muted">Precio por hora:</span>
               <span className="reservaSummaryValue">{Number(instalacion.precio_por_hora).toFixed(2)}€</span>
+            </div>
+            <div className="reservaSummaryRow">
+              <span className="muted">Horarios seleccionados:</span>
+              <span className="reservaSummaryValue">{horasSeleccionadas}</span>
             </div>
             {precioEstimado != null && (
               <>
@@ -362,22 +367,18 @@ export function Reserva() {
                 )}
               </>
             )}
-            {isSelectedBusy && (
-              <div className="reservaSummaryError">
-                <MaterialIcon name="warning" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '6px' }} />
-                Este horario ya está ocupado. Por favor, selecciona otro disponible.
-              </div>
-            )}
           </div>
 
           <div className="formActions">
             {auth.user?.is_admin ? (
-              <div className="alert alertError">
-                Los administradores no pueden reservar instalaciones.
-              </div>
+              <div className="alert alertError">Los administradores no pueden reservar instalaciones.</div>
             ) : (
-              <button className="btn btnPrimary btnLarge" type="submit" disabled={saving || auth.loading || (precioConDescuento ?? precioEstimado) == null || isSelectedBusy}>
-                {saving ? 'Confirmando…' : `Pagar y confirmar ${precioConDescuento != null ? precioConDescuento.toFixed(2) : precioEstimado?.toFixed(2) ?? '0.00'}€`}
+              <button
+                className="btn btnPrimary btnLarge"
+                type="submit"
+                disabled={saving || auth.loading || selected.length === 0}
+              >
+                {saving ? 'Confirmando…' : `Pagar y confirmar ${importeFinal.toFixed(2)}€`}
               </button>
             )}
           </div>
@@ -387,8 +388,8 @@ export function Reserva() {
       <PaymentModal
         open={payOpen}
         title="Pagar reserva"
-        amountEur={precioConDescuento ?? precioEstimado ?? 0}
-        description={`${instalacion.nombre} · ${fecha} · ${horaInicio}-${horaFin}${esSocioActivo ? ' · Descuento socio aplicado' : ''}`}
+        amountEur={importeFinal}
+        description={`${instalacion.nombre} · ${fecha} · ${selected.length} horario(s)${esSocioActivo ? ' · Descuento socio aplicado' : ''}`}
         onCancel={() => setPayOpen(false)}
         onSuccess={(paidId) => void createReserva(paidId)}
       />
@@ -418,5 +419,3 @@ function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
 function formatTipo(tipo: string) {
   return tipo.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
 }
-
-

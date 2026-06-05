@@ -15,6 +15,7 @@ import { AdminTorneos } from './pages/AdminTorneos'
 import { AdminGestionTorneos } from './pages/AdminGestionTorneos'
 import { HacerseSocio } from './pages/HacerseSocio'
 import { TorneoEnfrentamientos } from './pages/TorneoEnfrentamientos'
+import { Perfil } from './pages/Perfil'
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/mis-reservas" element={<MisReservas />} />
           <Route path="/mis-torneos" element={<MisTorneos />} />
           <Route path="/hacerse-socio" element={<HacerseSocio />} />
+          <Route path="/perfil" element={<Perfil />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/torneos" element={<AdminTorneos />} />
           <Route path="/admin/gestion-torneos" element={<AdminGestionTorneos />} />

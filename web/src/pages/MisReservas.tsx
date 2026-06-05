@@ -288,11 +288,18 @@ export function MisReservas() {
         title="Cancelar reserva"
         message={
           cancelModal.reserva
-            ? `¿Estás seguro de que deseas cancelar esta reserva?${
-                auth.user?.es_socio && auth.user?.fecha_fin_socio && new Date(auth.user.fecha_fin_socio) >= new Date()
-                  ? `\n\nComo socio, recibirás un reembolso del 100%: ${cancelModal.montoReembolso.toFixed(2)}€`
-                  : `\n\nRecibirás un reembolso del 50%: ${cancelModal.montoReembolso.toFixed(2)}€`
-              }`
+            ? (() => {
+                const esSocio =
+                  auth.user?.es_socio &&
+                  auth.user?.fecha_fin_socio &&
+                  new Date(auth.user.fecha_fin_socio) >= new Date()
+                const precioPagado = Number(cancelModal.reserva.precio_total)
+                if (esSocio) {
+                  return `¿Seguro que deseas cancelar esta reserva?\n\nComo socio, recibirás un reembolso del 100%: ${cancelModal.montoReembolso.toFixed(2)}€.`
+                }
+                const dineroPerdido = precioPagado - cancelModal.montoReembolso
+                return `Atención: si cancelas esta reserva PERDERÁS parte del dinero pagado.\n\nSolo se reembolsa el 50%: ${cancelModal.montoReembolso.toFixed(2)}€ (pierdes ${dineroPerdido.toFixed(2)}€).\n\nHazte socio para recibir el 100% del reembolso. ¿Deseas continuar?`
+              })()
             : ''
         }
         onConfirm={handleCancelarConfirm}

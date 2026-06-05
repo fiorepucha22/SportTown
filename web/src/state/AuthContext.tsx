@@ -9,6 +9,7 @@ type AuthContextValue = {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
+  updateProfile: (data: { name: string; email: string; current_password?: string; password?: string }) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
 }
@@ -77,6 +78,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({ name, email, password }),
         })
         setToken(res.token)
+        setUser(res.user)
+      },
+      async updateProfile(data) {
+        const res = await apiFetch<{ user: AuthUser; message: string }>('/api/auth/profile', {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        })
         setUser(res.user)
       },
       async logout() {

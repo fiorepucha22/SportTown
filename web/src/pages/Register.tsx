@@ -2,6 +2,7 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext'
+import { validarPasswordSegura } from '../lib/auth'
 
 export function Register() {
   const auth = useAuth()
@@ -13,9 +14,18 @@ export function Register() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const passwordError = password.length > 0 ? validarPasswordSegura(password) : null
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+
+    const errPwd = validarPasswordSegura(password)
+    if (errPwd) {
+      setError(errPwd)
+      return
+    }
+
     setSaving(true)
     try {
       await auth.register(name, email, password)
@@ -70,8 +80,11 @@ export function Register() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={8}
             />
+            <div className="fieldHint" style={passwordError ? { color: '#f44336' } : undefined}>
+              {passwordError ?? 'Mínimo 8 caracteres, 1 mayúscula, 1 número y 1 carácter especial.'}
+            </div>
           </div>
 
           <button className="btn btnPrimary" type="submit" disabled={saving || auth.loading}>

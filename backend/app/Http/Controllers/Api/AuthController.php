@@ -7,16 +7,42 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
+    /**
+     * Reglas para una contraseña segura:
+     * mínimo 8 caracteres, 1 mayúscula, 1 número y 1 carácter especial.
+     */
+    private function passwordRules(bool $required = true): array
+    {
+        $rules = [
+            'string',
+            'min:8',
+            'regex:/^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/',
+        ];
+
+        array_unshift($rules, $required ? 'required' : 'nullable');
+
+        return $rules;
+    }
+
+    private function passwordMessages(): array
+    {
+        return [
+            'password.regex' => 'La contraseña debe tener al menos 8 caracteres, una mayúscula, un número y un carácter especial.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres, una mayúscula, un número y un carácter especial.',
+        ];
+    }
+
     public function register(Request $request)
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:6'],
-        ]);
+            'password' => $this->passwordRules(),
+        ], $this->passwordMessages());
 
         $user = User::create([
             'name' => $data['name'],
@@ -65,6 +91,42 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Actualizar el perfil del usuario autenticado (nombre, email y/o contraseña).
+     */
+    public function updateProfile(Request $request)
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'current_password' => ['nullable', 'string'],
+            'password' => $this->passwordRules(false),
+        ], $this->passwordMessages());
+
+        // Si quiere cambiar la contraseña, verificar la actual
+        if (! empty($data['password'])) {
+            if (empty($data['current_password']) || ! Hash::check($data['current_password'], $user->password)) {
+                return response()->json([
+                    'message' => 'La contraseña actual no es correcta.',
+                ], 422);
+            }
+
+            $user->password = $data['password'];
+        }
+
+        $user->name = $data['name'];
+        $user->email = $data['email'];
+        $user->save();
+
+        return response()->json([
+            'message' => 'Perfil actualizado correctamente.',
+            'user' => $user,
+        ]);
+    }
+
     public function logout(Request $request)
     {
         /** @var User|null $user */
@@ -79,5 +141,3 @@ class AuthController extends Controller
         ]);
     }
 }
-
-

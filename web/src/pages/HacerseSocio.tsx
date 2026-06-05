@@ -216,7 +216,6 @@ export function HacerseSocio() {
           <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px' }}>Beneficios de ser socio:</h3>
           <ul style={{ margin: 0, paddingLeft: '24px', lineHeight: '1.8' }}>
             <li>Descuentos exclusivos en instalaciones (15% de descuento)</li>
-            <li>Promociones especiales en torneos</li>
             <li>Acceso prioritario a nuevas instalaciones</li>
             <li>Suscripción mensual renovable</li>
             <li>

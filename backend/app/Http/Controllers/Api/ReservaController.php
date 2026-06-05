@@ -7,6 +7,7 @@ use App\Models\Instalacion;
 use App\Models\Reserva;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReservaController extends Controller
 {
@@ -124,18 +125,20 @@ class ReservaController extends Controller
         $data = $request->validate([
             'instalacion_id' => ['required', 'integer', 'exists:instalaciones,id'],
             'fecha' => ['required', 'date'],
-            'hora_inicio' => ['required', 'date_format:H:i'],
-            'hora_fin' => ['required', 'date_format:H:i'],
+            // Modo varios horarios en una misma reserva
+            'slots' => ['sometimes', 'array', 'min:1'],
+            'slots.*.hora_inicio' => ['required_with:slots', 'date_format:H:i'],
+            'slots.*.hora_fin' => ['required_with:slots', 'date_format:H:i'],
+            // Modo horario único (compatibilidad)
+            'hora_inicio' => ['required_without:slots', 'date_format:H:i'],
+            'hora_fin' => ['required_without:slots', 'date_format:H:i'],
         ]);
 
-        $start = Carbon::createFromFormat('H:i', $data['hora_inicio']);
-        $end = Carbon::createFromFormat('H:i', $data['hora_fin']);
-
-        if ($end->lessThanOrEqualTo($start)) {
-            return response()->json([
-                'message' => 'La hora de fin debe ser mayor que la de inicio',
-            ], 422);
-        }
+        // Normalizar a una lista de slots
+        $slots = $data['slots'] ?? [[
+            'hora_inicio' => $data['hora_inicio'],
+            'hora_fin' => $data['hora_fin'],
+        ]];
 
         /** @var Instalacion $instalacion */
         $instalacion = Instalacion::query()->findOrFail($data['instalacion_id']);
@@ -146,49 +149,104 @@ class ReservaController extends Controller
             ], 404);
         }
 
-        $conflict = Reserva::query()
-            ->where('instalacion_id', $instalacion->id)
-            ->whereDate('fecha', $data['fecha'])
-            ->where('hora_inicio', '<', $data['hora_fin'])
-            ->where('hora_fin', '>', $data['hora_inicio'])
-            ->exists();
+        // Validar cada slot y detectar solapamientos entre los seleccionados
+        $normalizados = [];
+        foreach ($slots as $slot) {
+            $start = Carbon::createFromFormat('H:i', $slot['hora_inicio']);
+            $end = Carbon::createFromFormat('H:i', $slot['hora_fin']);
 
-        if ($conflict) {
+            if ($end->lessThanOrEqualTo($start)) {
+                return response()->json([
+                    'message' => 'La hora de fin debe ser mayor que la de inicio',
+                ], 422);
+            }
+
+            $sMin = $start->hour * 60 + $start->minute;
+            $eMin = $end->hour * 60 + $end->minute;
+
+            // Evitar horarios duplicados/solapados dentro de la misma petición
+            foreach ($normalizados as $n) {
+                if ($sMin < $n['endMin'] && $eMin > $n['startMin']) {
+                    return response()->json([
+                        'message' => 'Has seleccionado horarios que se solapan entre sí',
+                    ], 422);
+                }
+            }
+
+            $normalizados[] = [
+                'hora_inicio' => $slot['hora_inicio'],
+                'hora_fin' => $slot['hora_fin'],
+                'startMin' => $sMin,
+                'endMin' => $eMin,
+            ];
+        }
+
+        $esSocio = $user->esSocioActivo();
+        $precioPorHora = (float) $instalacion->precio_por_hora;
+
+        try {
+            $resultado = DB::transaction(function () use ($normalizados, $instalacion, $user, $data, $esSocio, $precioPorHora) {
+                $reservas = [];
+                $totalBase = 0.0;
+                $totalDescuento = 0.0;
+                $totalFinal = 0.0;
+
+                foreach ($normalizados as $slot) {
+                    // Bloquear filas en conflicto para evitar reservas duplicadas concurrentes
+                    $conflict = Reserva::query()
+                        ->where('instalacion_id', $instalacion->id)
+                        ->whereDate('fecha', $data['fecha'])
+                        ->whereIn('estado', ['confirmada', 'pendiente'])
+                        ->where('hora_inicio', '<', $slot['hora_fin'])
+                        ->where('hora_fin', '>', $slot['hora_inicio'])
+                        ->lockForUpdate()
+                        ->exists();
+
+                    if ($conflict) {
+                        // Abortar toda la transacción si algún horario ya está ocupado
+                        throw new \RuntimeException('Ya existe una reserva en el horario ' . substr($slot['hora_inicio'], 0, 5) . '-' . substr($slot['hora_fin'], 0, 5));
+                    }
+
+                    $hours = ($slot['endMin'] - $slot['startMin']) / 60;
+                    $precioBase = $precioPorHora * $hours;
+                    $descuento = $esSocio ? $precioBase * 0.15 : 0.0;
+                    $precioTotal = $precioBase - $descuento;
+
+                    $reservas[] = Reserva::create([
+                        'instalacion_id' => $instalacion->id,
+                        'user_id' => $user?->id,
+                        'fecha' => $data['fecha'],
+                        'hora_inicio' => $slot['hora_inicio'],
+                        'hora_fin' => $slot['hora_fin'],
+                        'precio_total' => round($precioTotal, 2),
+                        'estado' => 'confirmada',
+                    ]);
+
+                    $totalBase += $precioBase;
+                    $totalDescuento += $descuento;
+                    $totalFinal += $precioTotal;
+                }
+
+                return compact('reservas', 'totalBase', 'totalDescuento', 'totalFinal');
+            });
+        } catch (\RuntimeException $e) {
             return response()->json([
-                'message' => 'Ya existe una reserva en ese horario',
+                'message' => $e->getMessage(),
             ], 409);
         }
 
-        $minutes = $start->diffInMinutes($end);
-        $hours = $minutes / 60;
-        $precioBase = (float) $instalacion->precio_por_hora * $hours;
-        
-        // Aplicar descuento del 15% si el usuario es socio activo
-        $descuento = 0;
-        $precioTotal = $precioBase;
-        
-        if ($user->esSocioActivo()) {
-            $descuento = $precioBase * 0.15; // 15% de descuento
-            $precioTotal = $precioBase - $descuento;
-        }
-
-        $reserva = Reserva::create([
-            'instalacion_id' => $instalacion->id,
-            'user_id' => $user?->id,
-            'fecha' => $data['fecha'],
-            'hora_inicio' => $data['hora_inicio'],
-            'hora_fin' => $data['hora_fin'],
-            'precio_total' => round($precioTotal, 2),
-            'estado' => 'confirmada',
-        ]);
+        $reservas = $resultado['reservas'];
 
         return response()->json([
-            'data' => $reserva,
+            // Compatibilidad: 'data' es la primera reserva; 'reservas' contiene todas
+            'data' => $reservas[0],
+            'reservas' => $reservas,
             'meta' => [
-                'precio_base' => round($precioBase, 2),
-                'descuento_socio' => round($descuento, 2),
-                'precio_final' => round($precioTotal, 2),
-                'es_socio' => $user->esSocioActivo(),
+                'precio_base' => round($resultado['totalBase'], 2),
+                'descuento_socio' => round($resultado['totalDescuento'], 2),
+                'precio_final' => round($resultado['totalFinal'], 2),
+                'es_socio' => $esSocio,
+                'total_reservas' => count($reservas),
             ],
         ], 201);
     }

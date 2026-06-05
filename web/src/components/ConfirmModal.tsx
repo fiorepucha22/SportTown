@@ -44,7 +44,7 @@ export function ConfirmModal({
         </div>
 
         <div className="modalBody">
-          <p style={{ fontSize: '16px', lineHeight: '1.6', margin: '0 0 24px 0', color: 'var(--text-secondary)' }}>
+          <p style={{ fontSize: '16px', lineHeight: '1.6', margin: '0 0 24px 0', color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
             {message}
           </p>
 

@@ -12,7 +12,7 @@ type Torneo = {
   categoria?: string | null
   fecha_inicio: string
   fecha_fin: string
-  provincia: string
+  provincia?: string | null
   ciudad: string
   sede?: string | null
   descripcion?: string | null
@@ -177,8 +177,7 @@ export function TorneoModal({ open, torneo, onClose }: Props) {
               <h3 className="detailSectionTitle">Ubicación</h3>
               <p className="detailText">
                 <MaterialIcon name="location_on" className="detailIcon" />
-                {torneo.ciudad}, {torneo.provincia}
-                {torneo.sede ? ` · ${torneo.sede}` : ''}
+                {[torneo.ciudad, torneo.provincia, torneo.sede].map((p) => (p ?? '').trim()).filter((p) => p.length > 0).join(' · ') || 'Polideportivo'}
               </p>
             </div>
 

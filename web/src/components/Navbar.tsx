@@ -3,12 +3,15 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../state/AuthContext'
+import { isSocioActivo } from '../lib/auth'
 import { MaterialIcon } from './MaterialIcon'
 
 export function Navbar() {
   const auth = useAuth()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
+
+  const esSocio = isSocioActivo(auth.user)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -67,11 +70,20 @@ export function Navbar() {
           </NavLink>
 
           {auth.token && !auth.user?.is_admin && (
+            <NavLink className="navLink" to="/mis-torneos">
+              <span className="navIcon" aria-hidden="true">
+                {iconTrophy}
+              </span>
+              Mis Torneos
+            </NavLink>
+          )}
+
+          {auth.token && !auth.user?.is_admin && (
             <NavLink className="navLink" to="/hacerse-socio">
               <span className="navIcon" aria-hidden="true">
-                <MaterialIcon name={auth.user?.es_socio && auth.user?.fecha_fin_socio && new Date(auth.user.fecha_fin_socio) >= new Date() ? 'star' : 'star_border'} style={{ fontSize: '18px' }} />
+                <MaterialIcon name={esSocio ? 'star' : 'star_border'} style={{ fontSize: '18px' }} />
               </span>
-              {auth.user?.es_socio && auth.user?.fecha_fin_socio && new Date(auth.user.fecha_fin_socio) >= new Date() ? 'Socio' : 'Hacerse Socio'}
+              {esSocio ? 'Socio' : 'Hacerse Socio'}
             </NavLink>
           )}
         </nav>
@@ -93,11 +105,50 @@ export function Navbar() {
                 aria-haspopup="menu"
                 aria-expanded={open}
               >
-                <span className="avatar" aria-hidden="true">
+                <span className="avatar" aria-hidden="true" style={{ position: 'relative' }}>
                   {profile.initials}
+                  {esSocio ? (
+                    <span
+                      title="Socio activo"
+                      style={{
+                        position: 'absolute',
+                        bottom: -2,
+                        right: -2,
+                        background: '#ffc107',
+                        color: '#1a1a1a',
+                        borderRadius: '50%',
+                        width: 16,
+                        height: 16,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 0 0 2px var(--bg-primary, #111)',
+                      }}
+                    >
+                      <MaterialIcon name="star" style={{ fontSize: '11px' }} />
+                    </span>
+                  ) : null}
                 </span>
                 <span className="profileMeta">
-                  <span className="profileName">{profile.name}</span>
+                  <span className="profileName">
+                    {profile.name}
+                    {esSocio ? (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: '#ffc107',
+                          border: '1px solid #ffc107',
+                          borderRadius: 999,
+                          padding: '1px 8px',
+                          verticalAlign: 'middle',
+                        }}
+                      >
+                        SOCIO
+                      </span>
+                    ) : null}
+                  </span>
                   {profile.email ? <span className="profileEmail">{profile.email}</span> : null}
                 </span>
                 <span className="chev" aria-hidden="true">
@@ -108,7 +159,24 @@ export function Navbar() {
               {open ? (
                 <div className="menu" role="menu" aria-label="Perfil">
                   <div className="menuHeader">
-                    <div className="menuTitle">{profile.name}</div>
+                    <div className="menuTitle">
+                      {profile.name}
+                      {esSocio ? (
+                        <span
+                          style={{
+                            marginLeft: 8,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: '#ffc107',
+                            border: '1px solid #ffc107',
+                            borderRadius: 999,
+                            padding: '1px 8px',
+                          }}
+                        >
+                          SOCIO
+                        </span>
+                      ) : null}
+                    </div>
                     {profile.email ? <div className="menuSub">{profile.email}</div> : null}
                   </div>
 
@@ -140,6 +208,11 @@ export function Navbar() {
                         </Link>
                       </>
                     )}
+
+                    <Link className="menuItem" to="/perfil" role="menuitem" onClick={() => setOpen(false)}>
+                      <MaterialIcon name="manage_accounts" style={{ fontSize: '18px' }} />
+                      Editar perfil
+                    </Link>
 
                     <button
                       className="menuItem danger"

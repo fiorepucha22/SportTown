@@ -14,7 +14,7 @@ type Torneo = {
   categoria?: string | null
   fecha_inicio: string
   fecha_fin: string
-  provincia: string
+  provincia?: string | null
   ciudad: string
   sede?: string | null
   descripcion?: string | null
@@ -293,7 +293,7 @@ export function AdminGestionTorneos() {
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', minWidth: 0 }}>
                           <MaterialIcon name="location_on" style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.5)', flexShrink: 0, marginTop: '2px' }} />
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
-                            <span style={{ color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{torneo.ciudad}, {torneo.provincia}</span>
+                            <span style={{ color: 'rgba(255, 255, 255, 0.9)', whiteSpace: 'nowrap' }}>{[torneo.ciudad, torneo.provincia].map((p) => (p ?? '').trim()).filter((p) => p.length > 0).join(', ') || 'Polideportivo'}</span>
                             {torneo.sede && (
                               <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px', whiteSpace: 'nowrap' }}>{torneo.sede}</span>
                             )}
@@ -410,7 +410,7 @@ export function AdminGestionTorneos() {
                     <div className="torneoCardRow">
                       <MaterialIcon name="location_on" style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.5)' }} />
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span>{torneo.ciudad}, {torneo.provincia}</span>
+                        <span>{[torneo.ciudad, torneo.provincia].map((p) => (p ?? '').trim()).filter((p) => p.length > 0).join(', ') || 'Polideportivo'}</span>
                         {torneo.sede && <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>{torneo.sede}</span>}
                       </div>
                     </div>

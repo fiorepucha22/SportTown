@@ -13,7 +13,7 @@ type Torneo = {
   categoria?: string | null
   fecha_inicio: string
   fecha_fin: string
-  provincia: string
+  provincia?: string | null
   ciudad: string
   sede?: string | null
   descripcion?: string | null
@@ -21,6 +21,13 @@ type Torneo = {
   inscritos: number
   estado: string
   is_inscrito?: boolean
+}
+
+function formatUbicacion(ciudad?: string | null, provincia?: string | null, sede?: string | null) {
+  const partes = [ciudad, provincia, sede]
+    .map((p) => (p ?? '').trim())
+    .filter((p) => p.length > 0)
+  return partes.length > 0 ? partes.join(' · ') : 'Polideportivo'
 }
 
 const PROVINCIAS = ['Valencia', 'Alicante', 'Castellón'] as const
@@ -275,8 +282,7 @@ export function Torneos() {
 
               <div className="cardMeta" style={{ marginTop: 'auto' }}>
                 <div>
-                  {t.ciudad}, {t.provincia}
-                  {t.sede ? ` · ${t.sede}` : ''}
+                  {formatUbicacion(t.ciudad, t.provincia, t.sede)}
                 </div>
                 <div>{formatRangoFechas(t.fecha_inicio, t.fecha_fin)}</div>
                 <div>

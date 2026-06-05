@@ -193,7 +193,7 @@ export function AdminTorneos() {
                     <td className="adminTableCell" style={{ padding: '16px', fontSize: '13px', color: 'rgba(255, 255, 255, 0.8)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <MaterialIcon name="location_on" style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.5)' }} />
-                        {inscripcion.torneo.ciudad}, {inscripcion.torneo.provincia}
+                        {[inscripcion.torneo.ciudad, inscripcion.torneo.provincia].map((p) => (p ?? '').trim()).filter((p) => p.length > 0).join(', ') || 'Polideportivo'}
                       </div>
                     </td>
                     <td className="adminTableCell" style={{ padding: '16px' }}>
