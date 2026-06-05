@@ -41,13 +41,16 @@ Route::middleware('token')->group(function () {
 });
 
 Route::get('/torneos', [TorneoController::class, 'index']);
+
+// IMPORTANTE: esta ruta debe ir ANTES de '/torneos/{torneo}' para que
+// 'mis-torneos' no se interprete como un {torneo} y devuelva 404.
+Route::middleware('token')->get('/torneos/mis-torneos', [TorneoController::class, 'misTorneos']);
+
 Route::get('/torneos/{torneo}', [TorneoController::class, 'show']);
 Route::get('/torneos/{torneo}/ranking', [TorneoController::class, 'ranking']);
 Route::get('/torneos/{torneo}/bracket', [TorneoController::class, 'bracket']);
 
 Route::middleware('token')->group(function () {
-    // Esta ruta debe ir ANTES de las rutas con {torneo} para evitar conflictos
-    Route::get('/torneos/mis-torneos', [TorneoController::class, 'misTorneos']);
     Route::post('/torneos/{torneo}/inscribir', [TorneoController::class, 'inscribir']);
     Route::post('/torneos/{torneo}/desinscribir', [TorneoController::class, 'desinscribir']);
 });
